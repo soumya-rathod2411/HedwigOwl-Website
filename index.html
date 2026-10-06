@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    Security: locks down what this page is allowed to load or connect
+    to. Even in the unlikely event a script got injected somehow, this
+    stops it from loading external scripts, phoning home anywhere
+    other than the one GitHub URL this page actually needs, or doing
+    much of anything else.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src https://fonts.gstatic.com;
+                 img-src 'self' data:;
+                 connect-src https://raw.githubusercontent.com;
+                 script-src 'self';
+                 base-uri 'none';
+                 form-action 'none';
+                 frame-ancestors 'self'" />
+  <title>Hedwig Owl — File Archive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <svg class="owl-logo" viewBox="0 0 48 48" aria-hidden="true">
+        <!-- perch -->
+        <ellipse cx="24" cy="43" rx="7" ry="1.6" fill="#C9A227" opacity="0.5" />
+        <rect x="22.5" y="38" width="3" height="5" rx="1" fill="#8A6A2E" />
+
+        <!-- body -->
+        <path
+          d="M24 8c-6.8 0-11 5.4-11 12.6 0 5.4 2.2 9.6 5.4 12l-2.6 6.6c-.3.8.5 1.5 1.3 1.1l4.4-2.1c.9.3 1.8.4 2.5.4s1.6-.1 2.5-.4l4.4 2.1c.8.4 1.6-.3 1.3-1.1l-2.6-6.6c3.2-2.4 5.4-6.6 5.4-12C35 13.4 30.8 8 24 8z"
+          fill="#F3ECD9" stroke="#C9A227" stroke-width="1.2"
+        />
+
+        <!-- feather texture -->
+        <path d="M17 24c1.2 2 1.2 5 .4 7.4M31 24c-1.2 2-1.2 5-.4 7.4M20 15c-.3 3 0 6.4 1 9M28 15c.3 3 0 6.4-1 9"
+              stroke="#C9A227" stroke-width="0.7" fill="none" opacity="0.6" stroke-linecap="round" />
+
+        <!-- facial disc -->
+        <path d="M24 12.5c-3.6 0-6.2 2.6-6.2 6.6 0 1.6.4 3 1.1 4.1.9-1 2.2-1.6 3.7-1.6h2.8c1.5 0 2.8.6 3.7 1.6.7-1.1 1.1-2.5 1.1-4.1 0-4-2.6-6.6-6.2-6.6z"
+              fill="#EFE4C8" stroke="#C9A227" stroke-width="0.8" />
+
+        <!-- eyes -->
+        <circle cx="20.6" cy="19.5" r="2.6" fill="#1B2430" />
+        <circle cx="27.4" cy="19.5" r="2.6" fill="#1B2430" />
+        <circle cx="19.9" cy="18.7" r="0.6" fill="#F3ECD9" />
+        <circle cx="26.7" cy="18.7" r="0.6" fill="#F3ECD9" />
+
+        <!-- beak -->
+        <path d="M24 22.5l-1.5 2.2h3l-1.5-2.2z" fill="#C9A227" />
+
+        <!-- ear tufts -->
+        <path d="M16.5 12.5l2.6 3M31.5 12.5l-2.6 3" stroke="#C9A227" stroke-width="1.1" fill="none" stroke-linecap="round" />
+
+        <!-- folded wings -->
+        <path d="M13.5 22c-.8 4.4-.3 8.6 2 12" stroke="#C9A227" stroke-width="1" fill="none" opacity="0.7" stroke-linecap="round" />
+        <path d="M34.5 22c.8 4.4.3 8.6-2 12" stroke="#C9A227" stroke-width="1" fill="none" opacity="0.7" stroke-linecap="round" />
+      </svg>
+      <span class="site-title">Hedwig Owl</span>
+    </div>
+  </header>
+
+  <main class="archive-main">
+    <div class="archive-inner">
+
+      <h1 class="section-heading">Files</h1>
+
+      <div class="controls">
+        <div class="sort-controls" role="group" aria-label="Sort files">
+          <button type="button" class="sort-btn is-active" data-sort="newest">Newest</button>
+          <button type="button" class="sort-btn" data-sort="oldest">Oldest</button>
+        </div>
+
+        <div class="date-search">
+          <label for="date-search-input" class="date-search-label">Search by date</label>
+          <input type="date" id="date-search-input" class="date-search-input" />
+        </div>
+      </div>
+
+      <p id="empty-message" class="empty-message" hidden>No files found for this date.</p>
+      <p id="error-message" class="empty-message" hidden>
+        Couldn't load the archive right now. Try refreshing the page.
+      </p>
+
+      <div id="file-grid" class="file-grid" aria-live="polite"></div>
+
+      <button type="button" id="view-more-btn" class="view-more-btn" hidden>View more</button>
+
+      <p id="end-message" class="end-message" hidden>No more files</p>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-main">
+        <img class="footer-avatar" src="profile.jpg" alt="Soumya Rathod" />
+
+        <div class="footer-text">
+          <span class="footer-title">Hedwig Owl</span>
+          <p class="footer-name">Soumya Rathod</p>
+          <p class="footer-by">Built by Soumya Rathod</p>
+
+          <p class="footer-description">
+            In the Harry Potter books, Hedwig is a snowy owl who carries and delivers mail
+            to Harry. This project borrows her name for the same idea: an owl that fetches
+            and delivers what you need. Right now that means files — the plan is for it to
+            grow into a full AI agent that finds, organizes, and delivers information for you.
+          </p>
+
+          <div class="footer-links">
+            <a href="mailto:rsoumya2411@gmail.com" class="footer-link">rsoumya2411@gmail.com</a>
+            <a href="https://www.linkedin.com/in/soumya-rathod-33baa4382/" class="footer-link"
+               target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="https://github.com/soumya-rathod2411" class="footer-link"
+               target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </div>
+      </div>
+
+      <p class="footer-copyright">&copy; 2026 Hedwig Owl</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
