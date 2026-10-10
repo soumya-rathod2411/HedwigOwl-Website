@@ -33,7 +33,9 @@
   function fetchArchive() {
     if (archiveFetchPromise) return archiveFetchPromise;
 
-    archiveFetchPromise = fetch(MANIFEST_URL)
+    archiveFetchPromise = // Cache-bust by the minute so a freshly pushed report shows up without
+    // waiting on the browser/CDN to expire its old copy of index.json.
+    fetch(MANIFEST_URL + "?v=" + Math.floor(Date.now() / 60000))
       .then((res) => {
         if (!res.ok) throw new Error("HTTP " + res.status);
         return res.json();
@@ -52,19 +54,21 @@
         // arbitrary filename/path instead of a real report.
         const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
         const PDF_PATTERN = /^hedwig_report_\d{4}-\d{2}-\d{2}\.pdf$/;
+        const TXT_PATTERN = /^hedwig_report_\d{4}-\d{2}-\d{2}\.txt$/;
 
         return manifest
           .filter((entry) =>
             entry &&
             typeof entry.date === "string" && DATE_PATTERN.test(entry.date) &&
-            typeof entry.pdf === "string" && PDF_PATTERN.test(entry.pdf)
+            typeof entry.pdf === "string" && PDF_PATTERN.test(entry.pdf) &&
+            typeof entry.txt === "string" && TXT_PATTERN.test(entry.txt)
           )
           .map((entry) => ({
             id: entry.pdf,
-            name: entry.pdf,
+            name: "Hedwig Report",
             type: "pdf",
             date: entry.date,
-            url: REPO_BASE_URL + "reports/pdf/" + entry.pdf
+            url: REPO_BASE_URL + "reports/txt/" + entry.txt
           }));
       });
 
@@ -153,12 +157,57 @@
     });
   }
 
+  // ---- Read / unread marks, remembered on this device only ----
+  // localStorage can be blocked or empty (private window etc.), so every
+  // access is wrapped in try/catch and the site works fine without it.
+  const READ_KEY = "hedwigOwlRead";
+  function loadReadSet() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(READ_KEY) || "[]");
+      return new Set(Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : []);
+    } catch (e) { return new Set(); }
+  }
+  function saveReadSet(set) {
+    try { localStorage.setItem(READ_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+  }
+  const readSet = loadReadSet();
+
   function createFileCard(file) {
     const card = document.createElement("a");
     card.className = "file-card";
+    // The link points at the plain-text report (browsers display .txt, they
+    // never download it), so it still works if JS fails. Normally the click
+    // is intercepted and the report opens in the in-site reader instead.
     card.href = file.url;
     card.target = "_blank";
     card.rel = "noopener noreferrer";
+    card.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      // Taps on the little circle only toggle "read" -- they never open the report.
+      if (ev.target.closest(".read-toggle")) return;
+      openReader(file);
+    });
+
+    const tick = document.createElement("button");
+    tick.type = "button";
+    tick.className = "read-toggle";
+    tick.setAttribute("aria-label", "Mark this report as read");
+    tick.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    function paintRead() {
+      const isRead = readSet.has(file.id);
+      tick.classList.toggle("is-read", isRead);
+      card.classList.toggle("is-read", isRead);
+      tick.setAttribute("aria-pressed", String(isRead));
+    }
+    tick.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (readSet.has(file.id)) readSet.delete(file.id); else readSet.add(file.id);
+      saveReadSet(readSet);
+      paintRead();
+    });
+    paintRead();
+    card.appendChild(tick);
 
     // Icon markup is always one of our own fixed SVG strings (never
     // built from file data), so it's safe as innerHTML.
@@ -298,6 +347,105 @@
   // ---- View more button ----
   viewMoreBtn.addEventListener("click", () => {
     loadFiles(Infinity);
+  });
+
+  // ---- In-site report reader ----
+  const readerEl = document.getElementById("reader");
+  const readerBody = document.getElementById("reader-body");
+  const readerTitle = document.getElementById("reader-title");
+  let lastFocused = null;
+
+  // Adds text to a parent, turning **bold** pieces into <strong>. Built
+  // with createElement/textContent only, so report text can never inject HTML.
+  function addInline(parent, text) {
+    text.split("**").forEach((piece, i) => {
+      if (!piece) return;
+      if (i % 2 === 1) {
+        const b = document.createElement("strong");
+        b.textContent = piece;
+        parent.appendChild(b);
+      } else {
+        parent.appendChild(document.createTextNode(piece));
+      }
+    });
+  }
+
+  const LABEL_PATTERN = /^(What happened|Why you should care|Impact|What to do|Source):\s*(.*)$/;
+
+  function renderReportText(text) {
+    readerBody.textContent = "";
+    let list = null;
+    text.split("\n").forEach((raw, idx) => {
+      const line = raw.trim();
+      if (idx < 2 || /^=+$/.test(line) || !line) { list = null; return; } // skip title block
+      if (line.startsWith("## ")) {
+        list = null;
+        const h = document.createElement("h2");
+        h.textContent = line.slice(3);
+        readerBody.appendChild(h);
+      } else if (line.startsWith("- ") || line.startsWith("* ")) {
+        if (!list) { list = document.createElement("ul"); readerBody.appendChild(list); }
+        const li = document.createElement("li");
+        addInline(li, line.slice(2));
+        list.appendChild(li);
+      } else if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
+        list = null;
+        const h = document.createElement("h3");
+        h.textContent = line.slice(2, -2);
+        readerBody.appendChild(h);
+      } else {
+        list = null;
+        const p = document.createElement("p");
+        const m = LABEL_PATTERN.exec(line);
+        if (m) {
+          const lab = document.createElement("span");
+          lab.className = "reader-label";
+          lab.textContent = m[1] + ": ";
+          p.appendChild(lab);
+          addInline(p, m[2]);
+        } else if (/^(No |none )/i.test(line)) {
+          p.className = "reader-note";
+          addInline(p, line);
+        } else {
+          addInline(p, line);
+        }
+        readerBody.appendChild(p);
+      }
+    });
+  }
+
+  function openReader(file) {
+    lastFocused = document.activeElement;
+    readerTitle.textContent = "Report \u2014 " + formatDisplayDate(file.date);
+    readerBody.textContent = "Loading report\u2026";
+    readerEl.hidden = false;
+    document.body.classList.add("reader-open");
+    document.getElementById("reader-close").focus();
+
+    fetch(file.url + "?v=" + Math.floor(Date.now() / 60000))
+      .then((res) => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(renderReportText)
+      .catch((err) => {
+        console.error("Hedwig report fetch failed:", err);
+        readerBody.textContent = "Couldn't load this report right now. Please try again.";
+      });
+  }
+
+  function closeReader() {
+    readerEl.hidden = true;
+    document.body.classList.remove("reader-open");
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+  }
+
+  document.getElementById("reader-close").addEventListener("click", closeReader);
+  readerEl.addEventListener("click", (ev) => {
+    if (ev.target.getAttribute("data-close")) closeReader();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !readerEl.hidden) closeReader();
   });
 
   // ---- Initial load ----
