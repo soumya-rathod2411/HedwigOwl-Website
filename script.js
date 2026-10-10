@@ -202,9 +202,7 @@
     tick.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      if (readSet.has(file.id)) readSet.delete(file.id); else readSet.add(file.id);
-      saveReadSet(readSet);
-      paintRead();
+      toggleRead(file);
     });
     paintRead();
     card.appendChild(tick);
@@ -250,76 +248,78 @@
      3. STATE + EVENTS
      ========================================================== */
 
-  const grid = document.getElementById("file-grid");
+  const grid = document.getElementById("file-grid");            // "All reports" (read)
+  const unreadGrid = document.getElementById("unread-grid");
+  const unreadEmpty = document.getElementById("unread-empty");
+  const unreadCount = document.getElementById("unread-count");
+  const readEmpty = document.getElementById("read-empty");
   const endMessage = document.getElementById("end-message");
   const emptyMessage = document.getElementById("empty-message");
   const errorMessage = document.getElementById("error-message");
   const viewMoreBtn = document.getElementById("view-more-btn");
   const dateInput = document.getElementById("date-search-input");
   const sortButtons = document.querySelectorAll(".sort-btn");
+  const mainSections = document.getElementById("report-sections");
 
   const BATCH_SIZE = 9;
 
   const state = {
     sort: "newest",
     date: null,
-    offset: 0,
-    hasMore: true,
-    isLoading: false
+    showAllRead: false,   // "View more" on the All reports list
+    files: []             // every report that matches the current sort/date
   };
 
-  // Wipes the grid and any end-of-list / empty messaging, ready for a
-  // fresh set of results after a sort or date-filter change.
-  function resetView() {
-    grid.innerHTML = "";
-    state.offset = 0;
-    state.hasMore = true;
-    endMessage.hidden = true;
-    emptyMessage.hidden = true;
-    errorMessage.hidden = true;
-    viewMoreBtn.hidden = true;
+  // Fetches the (sorted, date-filtered) list once, then splits it by read state.
+  function reload() {
+    getFiles({ sort: state.sort, date: state.date, offset: 0, limit: Infinity })
+      .then((result) => {
+        if (result.error) {
+          errorMessage.hidden = false;
+          mainSections.hidden = true;
+          return;
+        }
+        errorMessage.hidden = true;
+        mainSections.hidden = false;
+        state.files = result.files;
+        render();
+      });
   }
 
-  // limit=BATCH_SIZE for the initial page load (just the first 9);
-  // limit=Infinity for the "View more" button, which loads every
-  // remaining file in one go rather than another batch of 9. Array.slice
-  // (used inside getFiles) handles an Infinity end bound fine -- it just
-  // clamps to however many results actually exist.
-  function loadFiles(limit) {
-    if (state.isLoading || !state.hasMore) return;
+  // Draws the two lists from state.files + the current read marks.
+  // Unticked reports sit under "Unread reports" (top); ticking one moves it
+  // down into "All reports", and unticking sends it back up.
+  function render() {
+    unreadGrid.textContent = "";
+    grid.textContent = "";
 
-    state.isLoading = true;
-    viewMoreBtn.hidden = true;
+    const unread = state.files.filter((f) => !readSet.has(f.id));
+    const read = state.files.filter((f) => readSet.has(f.id));
 
-    getFiles({
-      sort: state.sort,
-      date: state.date,
-      offset: state.offset,
-      limit: limit
-    }).then((result) => {
-      state.isLoading = false;
+    unread.forEach((f) => unreadGrid.appendChild(createFileCard(f)));
+    unreadCount.textContent = unread.length ? "(" + unread.length + ")" : "";
+    unreadEmpty.hidden = unread.length > 0;
 
-      if (result.error) {
-        errorMessage.hidden = false;
-        state.hasMore = false;
-        return;
-      }
+    const shown = state.showAllRead ? read : read.slice(0, BATCH_SIZE);
+    shown.forEach((f) => grid.appendChild(createFileCard(f)));
+    readEmpty.hidden = read.length > 0;
 
-      result.files.forEach((file) => {
-        grid.appendChild(createFileCard(file));
-      });
+    viewMoreBtn.hidden = state.showAllRead || read.length <= BATCH_SIZE;
+    endMessage.hidden = !(read.length > BATCH_SIZE && state.showAllRead);
 
-      state.offset += result.files.length;
-      state.hasMore = result.hasMore;
+    emptyMessage.hidden = state.files.length > 0;
+    if (state.files.length === 0) {
+      unreadEmpty.hidden = true;
+      readEmpty.hidden = true;
+    }
+  }
 
-      if (state.offset === 0 && result.total === 0) {
-        emptyMessage.hidden = false;
-      } else if (state.hasMore) {
-        viewMoreBtn.hidden = false;
-      } else {
-        endMessage.hidden = false;
-      }
-    });
+  // Called by a card's circle. Updates instantly and saves on this device.
+  function toggleRead(file) {
+    const nowRead = !readSet.has(file.id);
+    if (nowRead) readSet.add(file.id); else readSet.delete(file.id);
+    saveReadSet(readSet);
+    render();
   }
 
   // ---- Sort buttons ----
@@ -327,26 +327,25 @@
     btn.addEventListener("click", () => {
       const newSort = btn.getAttribute("data-sort");
       if (newSort === state.sort) return;
-
       sortButtons.forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
-
       state.sort = newSort;
-      resetView();
-      loadFiles(BATCH_SIZE);
+      state.showAllRead = false;
+      reload();
     });
   });
 
   // ---- Date search ----
   dateInput.addEventListener("change", () => {
     state.date = dateInput.value || null;
-    resetView();
-    loadFiles(BATCH_SIZE);
+    state.showAllRead = false;
+    reload();
   });
 
-  // ---- View more button ----
+  // ---- View more button (All reports list) ----
   viewMoreBtn.addEventListener("click", () => {
-    loadFiles(Infinity);
+    state.showAllRead = true;
+    render();
   });
 
   // ---- In-site report reader ----
@@ -449,5 +448,5 @@
   });
 
   // ---- Initial load ----
-  loadFiles(BATCH_SIZE);
+  reload();
 })();
