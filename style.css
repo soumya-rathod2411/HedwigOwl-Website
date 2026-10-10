@@ -228,6 +228,7 @@ body {
 }
 
 .file-chevron {
+  display: none; /* the read-circle owns the top-right corner now */
   width: 16px;
   height: 16px;
   flex-shrink: 0;
@@ -558,4 +559,19 @@ body.reader-open { overflow: hidden; }
   .file-card {
     transition: none;
   }
+}
+
+/* ---- Report groups + sync ---- */
+.group-heading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  margin: 8px 0 14px;
+  color: var(--color-text);
+}
+.group-count { color: var(--color-gold); font-size: 20px; }
+.report-group { margin-bottom: 36px; }
+.group-empty { color: var(--color-text-muted); font-style: italic; margin: 0 0 8px; }
+@media (max-width: 600px) {
+  .group-heading { font-size: 21px; }
 }
