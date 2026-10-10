@@ -27,6 +27,11 @@
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
     rel="stylesheet"
   />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#1B2430" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -60,11 +65,21 @@
         Couldn't load the archive right now. Try refreshing the page.
       </p>
 
-      <div id="file-grid" class="file-grid" aria-live="polite"></div>
+      <div id="report-sections">
+        <section class="report-group" aria-labelledby="unread-heading">
+          <h2 id="unread-heading" class="group-heading">Unread reports <span id="unread-count" class="group-count"></span></h2>
+          <p id="unread-empty" class="group-empty" hidden>You're all caught up.</p>
+          <div id="unread-grid" class="file-grid" aria-live="polite"></div>
+        </section>
 
-      <button type="button" id="view-more-btn" class="view-more-btn" hidden>View more</button>
-
-      <p id="end-message" class="end-message" hidden>No more files</p>
+        <section class="report-group" aria-labelledby="all-heading">
+          <h2 id="all-heading" class="group-heading">All reports</h2>
+          <p id="read-empty" class="group-empty" hidden>Reports you tick as read will appear here.</p>
+          <div id="file-grid" class="file-grid" aria-live="polite"></div>
+          <button type="button" id="view-more-btn" class="view-more-btn" hidden>View more</button>
+          <p id="end-message" class="end-message" hidden>No more files</p>
+        </section>
+      </div>
 
     </div>
   </main>
