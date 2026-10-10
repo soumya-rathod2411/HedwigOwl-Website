@@ -324,9 +324,11 @@ body {
 }
 
 .footer-by {
-  font-size: 13px;
-  color: rgba(243, 236, 217, 0.55);
-  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--color-gold);
+  margin: 8px 0 0;
 }
 
 .footer-name {
@@ -334,7 +336,7 @@ body {
   font-weight: 700;
   font-size: 22px;
   color: var(--color-gold);
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 
 .footer-description {
